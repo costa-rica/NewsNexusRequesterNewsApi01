@@ -3,13 +3,15 @@ const {
   NewsApiRequest,
   EntityWhoFoundArticle,
   NewsArticleAggregatorSource,
+  WebsiteDomain,
+  NewsApiRequestWebsiteDomainContract,
 } = require("newsnexus07db");
 const {
   writeResponseDataFromNewsAggregator,
 } = require("./utilitiesReadAndMakeFiles");
 const { checkRequestAndModifyDates } = require("./utilitiesMisc");
 
-async function requester(currentParams) {
+async function requester(currentParams, masterIndex) {
   // Step 1: prepare paramters
   const requestWindowInDays = 10; // how many days from startDate to endDate
   const andString = currentParams.andString;
@@ -33,20 +35,38 @@ async function requester(currentParams) {
       raw: true, // Returns data without all the database gibberish
     });
 
-  // console.log(`---> passing in dateEndOfRequest: ${dateEndOfRequest}`);
-
   // Step 2: Check include and exclude domain string and convert to object arrays
-  // create array from string in the form of "domain1, domain2, domain3"
   const includeDomainsArray = includeDomainsArrayString
     .split(",")
     .map((domain) => domain.trim());
   const excludeDomainsArray = excludeDomainsArrayString
     .split(",")
     .map((domain) => domain.trim());
-  console.log(`excludeDomainsArray: ${excludeDomainsArray}`);
-  console.log(typeof excludeDomainsArray);
-  console.log(excludeDomainsArray.length);
-  process.exit(0);
+  let excludeDomainsObjArray = [];
+  let includeDomainsObjArray = [];
+
+  if (includeDomainsArray.length > 0) {
+    for (const domain of includeDomainsArray) {
+      const domainObj = await WebsiteDomain.findOne({
+        where: { name: domain },
+        raw: true,
+      });
+      if (domainObj) {
+        includeDomainsObjArray.push(domainObj);
+      }
+    }
+  }
+  if (excludeDomainsArray.length > 0) {
+    for (const domain of excludeDomainsArray) {
+      const domainObj = await WebsiteDomain.findOne({
+        where: { name: domain },
+        raw: true,
+      });
+      if (domainObj) {
+        excludeDomainsObjArray.push(domainObj);
+      }
+    }
+  }
 
   // Step 2: Modify the startDate and endDate if necessary
   const { adjustedStartDate, adjustedEndDate } =
@@ -74,35 +94,43 @@ async function requester(currentParams) {
 
   try {
     ({ requestResponseData, newsApiRequestObj } =
-      await makeNewsApiRequestDetailedTest(
+      await makeNewsApiRequestDetailed(
         newsArticleAggregatorSourceObj,
         adjustedStartDate,
         adjustedEndDate,
         andString,
         orString,
         notString,
-        [],
-        []
+        includeDomainsObjArray,
+        excludeDomainsObjArray,
+        masterIndex
       ));
   } catch (error) {
-    console.error("Error during GNews API request:", error);
+    console.error(
+      `Error during ${process.env.NAME_OF_ORG_REQUESTING_FROM} API request:`,
+      error
+    );
     return; // prevent proceeding to storeGNewsArticles if request failed
+  }
+
+  console.log(
+    "-----> [in requester after makeNewsApiRequestDetailed] newsApiRequestObj ",
+    newsApiRequestObj
+  );
+  // Step 4: store the articles
+  if (!requestResponseData?.articles) {
+    console.log(
+      `No articles received from ${process.env.NAME_OF_ORG_REQUESTING_FROM} request response`
+    );
+  } else {
+    // Store articles and update NewsApiRequest
+    await storeNewsApiArticles(requestResponseData, newsApiRequestObj);
+    console.log(`completed NewsApiRequest.id: ${newsApiRequestObj.id}`);
   }
 
   // return "2025-05-03";
   return adjustedEndDate;
 }
-
-async function makeNewsApiRequestDetailedTest(
-  source,
-  startDate,
-  endDate,
-  keywordsAnd,
-  keywordsOr,
-  keywordsNot,
-  includeWebsiteDomainObjArray = [],
-  excludeWebsiteDomainObjArray = []
-) {}
 
 // Make a single requuest to the News API API
 async function makeNewsApiRequestDetailed(
@@ -113,26 +141,19 @@ async function makeNewsApiRequestDetailed(
   keywordsOr,
   keywordsNot,
   includeWebsiteDomainObjArray = [],
-  excludeWebsiteDomainObjArray = []
+  excludeWebsiteDomainObjArray = [],
+  masterIndex
 ) {
   // console.log(`keywordsAnd: ${keywordsAnd}, ${typeof keywordsAnd}`);
   // console.log(`keywordsOr: ${keywordsOr}, ${typeof keywordsOr}`);
   // console.log(`keywordsNot: ${keywordsNot}, ${typeof keywordsNot}`);
 
-  // if (Array.isArray(includeWebsiteDomainObjArray)) {
-  //   const includeSourcesArrayNames = includeWebsiteDomainObjArray.map(
-  //     (obj) => obj.name
-  //   );
-  //   console.log(
-  //     "[makeNewsApiRequestDetailed02] includeSourcesArrayNames:",
-  //     includeSourcesArrayNames
-  //   );
-  // } else {
-  //   console.log(
-  //     "[makeNewsApiRequestDetailed02] includeWebsiteDomainObjArray is not an array:",
-  //     includeWebsiteDomainObjArray
-  //   );
-  // }
+  console.log(
+    `---> includeWebsiteDomainObjArray: ${includeWebsiteDomainObjArray}, ${typeof includeWebsiteDomainObjArray}`
+  );
+  // console.log(
+  //   `---> excludeWebsiteDomainObjArray: ${excludeWebsiteDomainObjArray}, ${typeof excludeWebsiteDomainObjArray}`
+  // );
 
   function splitPreservingQuotes(str) {
     return str.match(/"[^"]+"|\S+/g)?.map((s) => s.trim()) || [];
@@ -142,25 +163,42 @@ async function makeNewsApiRequestDetailed(
   const orArray = splitPreservingQuotes(keywordsOr ? keywordsOr : "");
   const notArray = splitPreservingQuotes(keywordsNot ? keywordsNot : "");
 
-  const includeSourcesArray = includeWebsiteDomainObjArray.map(
-    (obj) => obj.name
-  );
-  const excludeSourcesArray = excludeWebsiteDomainObjArray.map(
-    (obj) => obj.name
-  );
+  let includeSourcesArray;
+  let excludeSourcesArray;
+  if (includeWebsiteDomainObjArray.length === 0) {
+    includeSourcesArray = null;
+  } else {
+    console.log("THIS SHOULD NOT FIRE");
+    includeSourcesArray = includeWebsiteDomainObjArray.map((obj) => obj.name);
+  }
+  if (excludeWebsiteDomainObjArray.length === 0) {
+    excludeSourcesArray = null;
+  } else {
+    excludeSourcesArray = excludeWebsiteDomainObjArray.map((obj) => obj.name);
+  }
 
   // Step 1: prepare token and dates
   const token = source.apiKey;
   if (!endDate) {
     endDate = new Date().toISOString().split("T")[0];
   }
-  if (!startDate) {
+
+  if (
+    !startDate ||
+    new Date(startDate) <
+      new Date(new Date().setDate(new Date().getDate() - 29))
+  ) {
     // startDate should be 29 days prior to endDate - account limitation
     startDate = new Date(new Date().setDate(new Date().getDate() - 29))
       .toISOString()
       .split("T")[0];
   }
 
+  // const startDateTest = new Date(startDate);
+
+  // console.log("-------");
+  // console.log(`startDate: ${startDate} ${typeof startDate}`);
+  // console.log("-------");
   let queryParams = [];
 
   if (includeSourcesArray && includeSourcesArray.length > 0) {
@@ -198,22 +236,24 @@ async function makeNewsApiRequestDetailed(
   console.log("- [makeNewsApiRequestDetailed] requestUrl", requestUrl);
   let status = "success";
   let requestResponseData = null;
-  let newsApiRequest = null;
+  // let newsApiRequest = null;
+  let newsApiRequestObj = null;
   if (process.env.ACTIVATE_API_REQUESTS_TO_OUTSIDE_SOURCES === "true") {
     const response = await fetch(requestUrl);
     requestResponseData = await response.json();
 
     if (!requestResponseData.articles) {
       status = "error";
+
       writeResponseDataFromNewsAggregator(
         source.id,
-        { id: "failed", url: requestUrl },
+        { id: `failed_masterIndex${masterIndex}`, url: requestUrl },
         requestResponseData,
         true
       );
     }
     // Step 4: create new NewsApiRequest
-    newsApiRequest = await NewsApiRequest.create({
+    newsApiRequestObj = await NewsApiRequest.create({
       newsArticleAggregatorSourceId: source.id,
       dateStartOfRequest: startDate,
       dateEndOfRequest: endDate,
@@ -227,23 +267,93 @@ async function makeNewsApiRequestDetailed(
 
     for (const domain of includeWebsiteDomainObjArray) {
       await NewsApiRequestWebsiteDomainContract.create({
-        newsApiRequestId: newsApiRequest.id,
+        newsApiRequestId: newsApiRequestObj.id,
         websiteDomainId: domain.websiteDomainId,
         includedOrExcludedFromRequest: "included",
       });
     }
     for (const domain of excludeWebsiteDomainObjArray) {
       await NewsApiRequestWebsiteDomainContract.create({
-        newsApiRequestId: newsApiRequest.id,
+        newsApiRequestId: newsApiRequestObj.id,
         websiteDomainId: domain.websiteDomainId,
         includedOrExcludedFromRequest: "excluded",
       });
     }
   } else {
-    newsApiRequest = requestUrl;
+    newsApiRequestObj = requestUrl;
   }
 
-  return { requestResponseData, newsApiRequest };
+  console.log(
+    "-----> [in makeNewsApiRequestDetailed] newsApiRequestObj ",
+    newsApiRequestObj
+  );
+
+  return { requestResponseData, newsApiRequestObj };
+}
+
+async function storeNewsApiArticles(requestResponseData, newsApiRequest) {
+  console.log("-----> newsApiRequest ", newsApiRequest);
+
+  // leverages the hasOne association from the NewsArticleAggregatorSource model
+  const newsApiSource = await NewsArticleAggregatorSource.findOne({
+    where: { nameOfOrg: process.env.NAME_OF_ORG_REQUESTING_FROM },
+    include: [{ model: EntityWhoFoundArticle }],
+  });
+
+  const entityWhoFoundArticleId = newsApiSource.EntityWhoFoundArticle?.id;
+
+  try {
+    let countOfArticlesSavedToDbFromRequest = 0;
+    for (let article of requestResponseData.articles) {
+      // Append article
+
+      const existingArticle = await Article.findOne({
+        where: { url: article.url },
+      });
+      if (existingArticle) {
+        continue;
+      }
+      const newArticle = await Article.create({
+        publicationName: article.source.name,
+        title: article.title,
+        author: article.author,
+        description: article.description,
+        url: article.url,
+        urlToImage: article.urlToImage,
+        publishedDate: article.publishedAt,
+        entityWhoFoundArticleId: entityWhoFoundArticleId,
+        newsApiRequestId: newsApiRequest.id,
+      });
+
+      // Append ArticleContent
+      await ArticleContent.create({
+        articleId: newArticle.id,
+        content: article.content,
+      });
+      countOfArticlesSavedToDbFromRequest++;
+    }
+    // Append NewsApiRequest
+    await newsApiRequest.update({
+      countOfArticlesSavedToDbFromRequest: countOfArticlesSavedToDbFromRequest,
+    });
+
+    writeResponseDataFromNewsAggregator(
+      newsApiSource.id,
+      newsApiRequest,
+      requestResponseData,
+      false
+      // newsApiRequest.url
+    );
+  } catch (error) {
+    console.error(error);
+    writeResponseDataFromNewsAggregator(
+      newsApiSource.id,
+      newsApiRequest,
+      requestResponseData,
+      true
+      // newsApiRequest.url
+    );
+  }
 }
 
 module.exports = {

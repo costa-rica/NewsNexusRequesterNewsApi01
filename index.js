@@ -59,7 +59,7 @@ async function main() {
   let masterIndex = 0;
   let index = 0;
 
-  console.log(arrayOfPrioritizedParameters);
+  // console.log(arrayOfPrioritizedParameters);
 
   while (true) {
     const currentParams = arrayOfPrioritizedParameters[index];
@@ -81,7 +81,7 @@ async function main() {
       new Date(currentParams?.dateEndOfRequest) <=
       new Date(new Date().toISOString().split("T")[0])
     ) {
-      dateEndOfRequest = await requester(currentParams);
+      dateEndOfRequest = await requester(currentParams, masterIndex);
       console.log(`Doing some requesting 🛒 ...`);
       currentParams.dateEndOfRequest = dateEndOfRequest;
       console.log(`dateEndOfRequest: ${currentParams.dateEndOfRequest}`);

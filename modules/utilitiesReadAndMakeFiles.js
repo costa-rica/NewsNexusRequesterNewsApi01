@@ -46,6 +46,9 @@ function writeResponseDataFromNewsAggregator(
   requestResponseData,
   prefix = false
 ) {
+  // console.log(
+  //   "-----> Error and writing into writeResponseDataFromNewsAggregator"
+  // );
   const formattedDate = new Date()
     .toISOString()
     .split("T")[0]
@@ -57,11 +60,17 @@ function writeResponseDataFromNewsAggregator(
   // ✅ Ensure dated subdirectory exists
   if (!fs.existsSync(datedDir)) {
     fs.mkdirSync(datedDir, { recursive: true });
+  } else {
+    console.log("-----> datedDir already exists");
   }
+  console.log(
+    "-----> newsApiRequest ",
+    JSON.stringify(newsApiRequest, null, 2)
+  );
 
   // ✅ Remove date from filename
   const responseFilename = prefix
-    ? `failedToSave_requestId${newsApiRequest.id}_apiId${NewsArticleAggregatorSourceId}.json`
+    ? `failed_requestId${newsApiRequest.id}_apiId${NewsArticleAggregatorSourceId}.json`
     : `requestId${newsApiRequest.id}_apiId${NewsArticleAggregatorSourceId}.json`;
 
   const responseFilePath = path.join(datedDir, responseFilename);
