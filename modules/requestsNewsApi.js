@@ -152,9 +152,11 @@ async function makeNewsApiRequestDetailed(
   // console.log(
   //   `---> includeWebsiteDomainObjArray: ${includeWebsiteDomainObjArray}, ${typeof includeWebsiteDomainObjArray}`
   // );
-  // console.log(
-  //   `---> excludeWebsiteDomainObjArray: ${excludeWebsiteDomainObjArray}, ${typeof excludeWebsiteDomainObjArray}`
-  // );
+  console.log(
+    `---> excludeWebsiteDomainObjArray: ${JSON.stringify(
+      excludeWebsiteDomainObjArray
+    )}, ${typeof excludeWebsiteDomainObjArray}`
+  );
 
   function splitPreservingQuotes(str) {
     return str.match(/"[^"]+"|\S+/g)?.map((s) => s.trim()) || [];
@@ -178,8 +180,7 @@ async function makeNewsApiRequestDetailed(
     excludeSourcesArray = excludeWebsiteDomainObjArray.map((obj) => obj.name);
   }
 
-  // Step 1: prepare token and dates
-  const token = source.apiKey;
+  // Step 1: prepare dates
   if (!endDate) {
     endDate = new Date().toISOString().split("T")[0];
   }
@@ -239,6 +240,7 @@ async function makeNewsApiRequestDetailed(
   let requestResponseData = null;
   // let newsApiRequest = null;
   let newsApiRequestObj = null;
+
   if (process.env.ACTIVATE_API_REQUESTS_TO_OUTSIDE_SOURCES === "true") {
     const response = await fetch(requestUrl);
     requestResponseData = await response.json();
@@ -271,14 +273,14 @@ async function makeNewsApiRequestDetailed(
     for (const domain of includeWebsiteDomainObjArray) {
       await NewsApiRequestWebsiteDomainContract.create({
         newsApiRequestId: newsApiRequestObj.id,
-        websiteDomainId: domain.websiteDomainId,
+        websiteDomainId: domain.id,
         includedOrExcludedFromRequest: "included",
       });
     }
     for (const domain of excludeWebsiteDomainObjArray) {
       await NewsApiRequestWebsiteDomainContract.create({
         newsApiRequestId: newsApiRequestObj.id,
-        websiteDomainId: domain.websiteDomainId,
+        websiteDomainId: domain.id,
         includedOrExcludedFromRequest: "excluded",
       });
     }
