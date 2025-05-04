@@ -22,6 +22,7 @@ console.log(
 );
 
 async function main() {
+  console.log("Starting main function");
   // Step 1: Create Array of Parameters for Requests - prioritized based on dateEndOfRequest
   // Step 1.1: Get the query objects from Excel file
   const queryObjects = getRequestsParameterArrayFromExcelFile();
@@ -82,7 +83,7 @@ async function main() {
       new Date(new Date().toISOString().split("T")[0])
     ) {
       dateEndOfRequest = await requester(currentParams, masterIndex);
-      console.log(`Doing some requesting 🛒 ...`);
+      // console.log(`Doing some requesting 🛒 ...`);
       currentParams.dateEndOfRequest = dateEndOfRequest;
       console.log(`dateEndOfRequest: ${currentParams.dateEndOfRequest}`);
     }
