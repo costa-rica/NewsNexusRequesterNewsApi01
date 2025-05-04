@@ -50,6 +50,11 @@ async function main() {
   for (let i = 0; i < arrayOfPrioritizedParameters.length; i++) {
     arrayOfPrioritizedParameters[i].dateEndOfRequest =
       await findEndDateToQueryParameters(arrayOfPrioritizedParameters[i]);
+    if (i % 1000 === 0) {
+      console.log(
+        `-- ${i} of ${arrayOfPrioritizedParameters.length} rows processed --`
+      );
+    }
   }
 
   console.log("- status: finished preparing paramters dateEndOfRequest");
