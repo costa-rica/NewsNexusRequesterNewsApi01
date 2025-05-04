@@ -114,10 +114,10 @@ async function requester(currentParams, masterIndex) {
     return; // prevent proceeding to storeGNewsArticles if request failed
   }
 
-  console.log(
-    "-----> [in requester after makeNewsApiRequestDetailed] newsApiRequestObj ",
-    newsApiRequestObj
-  );
+  // console.log(
+  //   "-----> [in requester after makeNewsApiRequestDetailed] newsApiRequestObj ",
+  //   newsApiRequestObj
+  // );
   // Step 4: store the articles
   if (!requestResponseData?.articles) {
     console.log(
