@@ -152,11 +152,11 @@ async function makeNewsApiRequestDetailed(
   // console.log(
   //   `---> includeWebsiteDomainObjArray: ${includeWebsiteDomainObjArray}, ${typeof includeWebsiteDomainObjArray}`
   // );
-  console.log(
-    `---> excludeWebsiteDomainObjArray: ${JSON.stringify(
-      excludeWebsiteDomainObjArray
-    )}, ${typeof excludeWebsiteDomainObjArray}`
-  );
+  // console.log(
+  //   `---> excludeWebsiteDomainObjArray: ${JSON.stringify(
+  //     excludeWebsiteDomainObjArray
+  //   )}, ${typeof excludeWebsiteDomainObjArray}`
+  // );
 
   function splitPreservingQuotes(str) {
     return str.match(/"[^"]+"|\S+/g)?.map((s) => s.trim()) || [];
