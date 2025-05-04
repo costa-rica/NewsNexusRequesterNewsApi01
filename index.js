@@ -43,12 +43,16 @@ async function main() {
     ...arrayOfParametersRequestedSortedAscendingByDateEndOfRequest,
   ];
 
+  console.log(
+    "- status: preparing paramters dateEndOfRequest this could take a while... updating for each row in Excel spreadsheet."
+  );
   // Step 1.5: Add the endDate to each request from the existing NewsApiRequests table
   for (let i = 0; i < arrayOfPrioritizedParameters.length; i++) {
     arrayOfPrioritizedParameters[i].dateEndOfRequest =
       await findEndDateToQueryParameters(arrayOfPrioritizedParameters[i]);
   }
 
+  console.log("- status: finished preparing paramters dateEndOfRequest");
   if (arrayOfPrioritizedParameters.length === 0) {
     console.log(
       "--- No (unrequested) request parameters found in Excel file. Exiting process. ---"
