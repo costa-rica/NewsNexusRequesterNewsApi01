@@ -63,10 +63,10 @@ function writeResponseDataFromNewsAggregator(
   } else {
     console.log("-----> datedDir already exists");
   }
-  console.log(
-    "-----> newsApiRequest ",
-    JSON.stringify(newsApiRequest, null, 2)
-  );
+  // console.log(
+  //   "-----> newsApiRequest ",
+  //   JSON.stringify(newsApiRequest, null, 2)
+  // );
 
   // ✅ Remove date from filename
   const responseFilename = prefix

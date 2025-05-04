@@ -5,6 +5,7 @@ const {
   NewsArticleAggregatorSource,
   WebsiteDomain,
   NewsApiRequestWebsiteDomainContract,
+  ArticleContent,
 } = require("newsnexus07db");
 const {
   writeResponseDataFromNewsAggregator,
@@ -148,9 +149,9 @@ async function makeNewsApiRequestDetailed(
   // console.log(`keywordsOr: ${keywordsOr}, ${typeof keywordsOr}`);
   // console.log(`keywordsNot: ${keywordsNot}, ${typeof keywordsNot}`);
 
-  console.log(
-    `---> includeWebsiteDomainObjArray: ${includeWebsiteDomainObjArray}, ${typeof includeWebsiteDomainObjArray}`
-  );
+  // console.log(
+  //   `---> includeWebsiteDomainObjArray: ${includeWebsiteDomainObjArray}, ${typeof includeWebsiteDomainObjArray}`
+  // );
   // console.log(
   //   `---> excludeWebsiteDomainObjArray: ${excludeWebsiteDomainObjArray}, ${typeof excludeWebsiteDomainObjArray}`
   // );
@@ -233,7 +234,7 @@ async function makeNewsApiRequestDetailed(
   queryParams.push(`apiKey=${source.apiKey}`);
 
   const requestUrl = `${source.url}everything?${queryParams.join("&")}`;
-  console.log("- [makeNewsApiRequestDetailed] requestUrl", requestUrl);
+  // console.log("- [makeNewsApiRequestDetailed] requestUrl", requestUrl);
   let status = "success";
   let requestResponseData = null;
   // let newsApiRequest = null;
@@ -244,7 +245,7 @@ async function makeNewsApiRequestDetailed(
 
     if (!requestResponseData.articles) {
       status = "error";
-
+      // console.log(" #1 writeResponseDataFromNewsAggregator");
       writeResponseDataFromNewsAggregator(
         source.id,
         { id: `failed_masterIndex${masterIndex}`, url: requestUrl },
@@ -258,11 +259,13 @@ async function makeNewsApiRequestDetailed(
       dateStartOfRequest: startDate,
       dateEndOfRequest: endDate,
       countOfArticlesReceivedFromRequest: requestResponseData.articles?.length,
+      countOfArticlesAvailableFromRequest: requestResponseData.totalResults,
       status,
       url: requestUrl,
       andString: keywordsAnd,
       orString: keywordsOr,
       notString: keywordsNot,
+      isFromAutomation: true,
     });
 
     for (const domain of includeWebsiteDomainObjArray) {
@@ -283,16 +286,16 @@ async function makeNewsApiRequestDetailed(
     newsApiRequestObj = requestUrl;
   }
 
-  console.log(
-    "-----> [in makeNewsApiRequestDetailed] newsApiRequestObj ",
-    newsApiRequestObj
-  );
+  // console.log(
+  //   "-----> [in makeNewsApiRequestDetailed] newsApiRequestObj ",
+  //   newsApiRequestObj
+  // );
 
   return { requestResponseData, newsApiRequestObj };
 }
 
 async function storeNewsApiArticles(requestResponseData, newsApiRequest) {
-  console.log("-----> newsApiRequest ", newsApiRequest);
+  // console.log("-----> newsApiRequest ", newsApiRequest);
 
   // leverages the hasOne association from the NewsArticleAggregatorSource model
   const newsApiSource = await NewsArticleAggregatorSource.findOne({
@@ -317,26 +320,28 @@ async function storeNewsApiArticles(requestResponseData, newsApiRequest) {
         publicationName: article.source.name,
         title: article.title,
         author: article.author,
-        description: article.description,
+        description: article?.description,
         url: article.url,
-        urlToImage: article.urlToImage,
-        publishedDate: article.publishedAt,
+        urlToImage: article?.urlToImage,
+        publishedDate: article?.publishedAt,
         entityWhoFoundArticleId: entityWhoFoundArticleId,
         newsApiRequestId: newsApiRequest.id,
       });
 
-      // Append ArticleContent
-      await ArticleContent.create({
-        articleId: newArticle.id,
-        content: article.content,
-      });
+      if (article?.content) {
+        // Append ArticleContent
+        await ArticleContent.create({
+          articleId: newArticle.id,
+          content: article.content,
+        });
+      }
       countOfArticlesSavedToDbFromRequest++;
     }
     // Append NewsApiRequest
     await newsApiRequest.update({
       countOfArticlesSavedToDbFromRequest: countOfArticlesSavedToDbFromRequest,
     });
-
+    // console.log(" #2 writeResponseDataFromNewsAggregator");
     writeResponseDataFromNewsAggregator(
       newsApiSource.id,
       newsApiRequest,
@@ -346,6 +351,8 @@ async function storeNewsApiArticles(requestResponseData, newsApiRequest) {
     );
   } catch (error) {
     console.error(error);
+    requestResponseData.error = error;
+    // console.log(" #3 writeResponseDataFromNewsAggregator");
     writeResponseDataFromNewsAggregator(
       newsApiSource.id,
       newsApiRequest,
