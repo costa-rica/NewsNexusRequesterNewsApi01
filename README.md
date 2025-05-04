@@ -1,1 +1,15 @@
 # NewsNexusRequesterNewsApi01
+
+## Environment Variables
+
+```
+APP_NAME=NewsNexusRequesterNewsApi01
+NAME_DB=newsnexus07.db
+PATH_DATABASE=/Users/nick/Documents/_databases/NewsNexus07/
+PATH_TO_API_RESPONSE_JSON_FILES=/Users/nick/Documents/_project_resources/NewsNexus07/api_response_json_files
+ACTIVATE_API_REQUESTS_TO_OUTSIDE_SOURCES=true
+PATH_AND_FILENAME_FOR_QUERY_SPREADSHEET_AUTOMATED=/Users/nick/Documents/_project_resources/NewsNexus07/utilities/AutomatedRequestsNewsAPI.xlsx
+NAME_OF_ORG_REQUESTING_FROM=NewsAPI
+LIMIT_DAYS_BACK_TO_REQUEST=29
+LIMIT_MAXIMUM_MASTER_INDEX=100000
+```
