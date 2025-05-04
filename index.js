@@ -102,7 +102,10 @@ async function main() {
     console.log(`End of ${index} request loop --`);
     index++;
     masterIndex++;
-    if (masterIndex === 10) {
+    if (masterIndex === process.env.LIMIT_MAXIMUM_MASTER_INDEX || 5) {
+      console.log(
+        `--- [End process] Went through ${process.env.LIMIT_MAXIMUM_MASTER_INDEX} requests ---`
+      );
       break;
     }
 
