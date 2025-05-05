@@ -254,6 +254,12 @@ async function makeNewsApiRequestDetailed(
         requestResponseData,
         true
       );
+      if (requestResponseData.code === "rateLimited") {
+        console.log(
+          `--> ⛔ Ending process: rate limited by ${process.env.NAME_OF_ORG_REQUESTING_FROM}`
+        );
+        process.exit(1);
+      }
     }
     // Step 4: create new NewsApiRequest
     newsApiRequestObj = await NewsApiRequest.create({
