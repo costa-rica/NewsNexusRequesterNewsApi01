@@ -97,7 +97,7 @@ async function main() {
       console.log(`dateEndOfRequest: ${currentParams.dateEndOfRequest}`);
     }
     // Step 2.2: Respect pacing
-    await sleep(requestPaceInMilisecs);
+    await sleep(process.env.MILISECONDS_IN_BETWEEN_REQUESTS);
 
     console.log(`End of ${index} request loop --`);
     index++;
