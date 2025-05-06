@@ -9,13 +9,14 @@ const {
 } = require("./modules/utilitiesMisc");
 const { requester } = require("./modules/requestsNewsApi");
 
-const requestPaceInMilisecs = 1000;
-
 console.log(
   `--------------------------------------------------------------------------------`
 );
 console.log(
   `- Start NewsNexusRequesterNewsApi01 ${new Date().toISOString()} --`
+);
+console.log(
+  `MILISECONDS_IN_BETWEEN_REQUESTS: ${process.env.MILISECONDS_IN_BETWEEN_REQUESTS}`
 );
 console.log(
   `--------------------------------------------------------------------------------`
