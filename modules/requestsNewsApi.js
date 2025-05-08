@@ -12,7 +12,7 @@ const {
 } = require("./utilitiesReadAndMakeFiles");
 const { checkRequestAndModifyDates } = require("./utilitiesMisc");
 
-async function requester(currentParams, masterIndex) {
+async function requester(currentParams, indexMaster) {
   // Step 1: prepare paramters
   const requestWindowInDays = 10; // how many days from startDate to endDate
   const andString = currentParams.andString;
@@ -104,7 +104,7 @@ async function requester(currentParams, masterIndex) {
         notString,
         includeDomainsObjArray,
         excludeDomainsObjArray,
-        masterIndex
+        indexMaster
       ));
   } catch (error) {
     console.error(
@@ -143,7 +143,7 @@ async function makeNewsApiRequestDetailed(
   keywordsNot,
   includeWebsiteDomainObjArray = [],
   excludeWebsiteDomainObjArray = [],
-  masterIndex
+  indexMaster
 ) {
   // console.log(`keywordsAnd: ${keywordsAnd}, ${typeof keywordsAnd}`);
   // console.log(`keywordsOr: ${keywordsOr}, ${typeof keywordsOr}`);
@@ -250,7 +250,7 @@ async function makeNewsApiRequestDetailed(
       // console.log(" #1 writeResponseDataFromNewsAggregator");
       writeResponseDataFromNewsAggregator(
         source.id,
-        { id: `failed_masterIndex${masterIndex}`, url: requestUrl },
+        { id: `failed_indexMaster${indexMaster}`, url: requestUrl },
         requestResponseData,
         true
       );

@@ -67,7 +67,7 @@ async function main() {
   }
 
   // Step 2: Process the requests
-  let masterIndex = 0;
+  let indexMaster = 0;
   let index = 0;
 
   // console.log(arrayOfPrioritizedParameters);
@@ -76,14 +76,14 @@ async function main() {
     const currentParams = arrayOfPrioritizedParameters[index];
     if (!currentParams.dateEndOfRequest) {
       console.log(
-        `--- No dateEndOfRequest found for request index ${index} (masterIndex ${masterIndex}). Exiting process. ---`
+        `--- No dateEndOfRequest found for request index ${index} (indexMaster ${indexMaster}). Exiting process. ---`
       );
       break;
     }
     let dateEndOfRequest;
 
     console.log(
-      `-- ${masterIndex}: Start processing request for AND ${currentParams.andString} OR ${currentParams.orString} NOT ${currentParams.notString}`
+      `-- ${indexMaster}: Start processing request for AND ${currentParams.andString} OR ${currentParams.orString} NOT ${currentParams.notString}`
     );
     // console.log(`dateEndOfRequest: ${currentParams.dateEndOfRequest}`);
 
@@ -92,7 +92,7 @@ async function main() {
       new Date(currentParams?.dateEndOfRequest) <=
       new Date(new Date().toISOString().split("T")[0])
     ) {
-      dateEndOfRequest = await requester(currentParams, masterIndex);
+      dateEndOfRequest = await requester(currentParams, indexMaster);
       // console.log(`Doing some requesting 🛒 ...`);
       currentParams.dateEndOfRequest = dateEndOfRequest;
       console.log(`dateEndOfRequest: ${currentParams.dateEndOfRequest}`);
@@ -102,10 +102,10 @@ async function main() {
 
     console.log(`End of ${index} request loop --`);
     index++;
-    masterIndex++;
+    indexMaster++;
     const limit = Number(process.env.LIMIT_MAXIMUM_MASTER_INDEX) || 5;
 
-    if (masterIndex === limit) {
+    if (indexMaster === limit) {
       console.log(`--- [End process] Went through ${limit} requests ---`);
       break;
     }
