@@ -6,6 +6,7 @@ const {
 const {
   createArraysOfParametersNeverRequestedAndRequested,
   findEndDateToQueryParameters,
+  runSemanticScorer,
 } = require("./modules/utilitiesMisc");
 const { requester } = require("./modules/requestsNewsApi");
 
@@ -107,6 +108,7 @@ async function main() {
 
     if (indexMaster === limit) {
       console.log(`--- [End process] Went through ${limit} requests ---`);
+      await runSemanticScorer();
       break;
     }
 
