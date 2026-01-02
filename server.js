@@ -1,15 +1,6 @@
 require("dotenv").config();
-const originalLog = console.log;
-const originalError = console.error;
-const prefix = `[${process.env.NAME_APP}] `;
-
-console.log = (...args) => {
-  originalLog(prefix, ...args);
-};
-
-console.error = (...args) => {
-  originalError(prefix, ...args);
-};
+// Initialize Winston logger early (replaces console.* methods)
+const logger = require("./modules/logger");
 
 // require("./index");
 

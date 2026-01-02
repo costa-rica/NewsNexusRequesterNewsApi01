@@ -12,6 +12,7 @@
   "dependencies": {
     "dotenv": "^16.5.0",
     "newsnexus10db": "file:../NewsNexus10Db",
+    "winston": "^3.19.0",
     "xlsx": "^0.18.5"
   }
 }

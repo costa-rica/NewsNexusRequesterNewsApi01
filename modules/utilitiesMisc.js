@@ -131,12 +131,40 @@ async function findEndDateToQueryParameters(queryParameters) {
 }
 
 async function runSemanticScorer() {
+  // Validate NAME_CHILD_PROCESS_* is set (FATAL ERROR if missing)
+  const childProcessName =
+    process.env.NAME_CHILD_PROCESS ||
+    Object.keys(process.env).find((key) =>
+      key.startsWith("NAME_CHILD_PROCESS_")
+    )
+      ? process.env[
+          Object.keys(process.env).find((key) =>
+            key.startsWith("NAME_CHILD_PROCESS_")
+          )
+        ]
+      : null;
+
+  if (!childProcessName) {
+    console.error(
+      "FATAL ERROR: Cannot spawn child process - missing NAME_CHILD_PROCESS or NAME_CHILD_PROCESS_[descriptor] in environment.\n" +
+        "Please add the appropriate variable to the .env file.\n" +
+        "Example: NAME_CHILD_PROCESS=MyApp_Worker or NAME_CHILD_PROCESS_SEMANTIC_SCORER=MyApp_SemanticScorer"
+    );
+    process.exit(1);
+  }
+
   console.log(
     `Starting child process: ${process.env.PATH_AND_FILENAME_TO_SEMANTIC_SCORER}`
   );
+
   return new Promise((resolve, reject) => {
     exec(
       `node "${process.env.PATH_AND_FILENAME_TO_SEMANTIC_SCORER}"`,
+      {
+        env: {
+          ...process.env, // Passes all env variables including NAME_CHILD_PROCESS_*, PATH_TO_LOGS, LOG_MAX_SIZE, LOG_MAX_FILES, NODE_ENV
+        },
+      },
       (error, stdout, stderr) => {
         if (error) {
           console.error(`Error executing child process: ${error.message}`);

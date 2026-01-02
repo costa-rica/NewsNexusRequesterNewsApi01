@@ -1,4 +1,7 @@
 require("dotenv").config();
+// Initialize Winston logger early (replaces console.* methods)
+const logger = require("./modules/logger");
+
 console.log("Starting NewsNexusRequesterNewsApi01");
 
 // Initialize database models BEFORE importing other modules
