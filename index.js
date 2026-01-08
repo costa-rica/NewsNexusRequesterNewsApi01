@@ -4,6 +4,118 @@ const logger = require("./modules/logger");
 
 logger.info("Starting NewsNexusRequesterNewsApi01");
 
+// ============================================================================
+// TIME GUARDRAIL CHECK
+// ============================================================================
+
+function checkTimeGuardrail() {
+  // Check for bypass flag
+  const runAnyway = process.argv.includes("--run-anyway");
+  if (runAnyway) {
+    logger.warn(
+      "TIME GUARDRAIL BYPASSED: --run-anyway flag detected. Running outside configured time window."
+    );
+    return;
+  }
+
+  // Parse configuration
+  const guardrailTargetTime = process.env.GUARDRAIL_TARGET_TIME || "23:00";
+  const guardrailWindowMins =
+    parseInt(process.env.GUARDRAIL_TARGET_WINDOW_IN_MINS) || 5;
+
+  // Validate time format
+  const timeRegex = /^(\d{1,2}):(\d{2})$/;
+  const match = guardrailTargetTime.match(timeRegex);
+
+  if (!match) {
+    logger.error(
+      `FATAL ERROR: Invalid GUARDRAIL_TARGET_TIME format: "${guardrailTargetTime}". Expected HH:MM (24-hour format).`
+    );
+    process.exit(1);
+  }
+
+  const targetHour = parseInt(match[1]);
+  const targetMinute = parseInt(match[2]);
+
+  // Validate hour and minute ranges
+  if (targetHour < 0 || targetHour > 23) {
+    logger.error(
+      `FATAL ERROR: Invalid hour in GUARDRAIL_TARGET_TIME: ${targetHour}. Must be 0-23.`
+    );
+    process.exit(1);
+  }
+
+  if (targetMinute < 0 || targetMinute > 59) {
+    logger.error(
+      `FATAL ERROR: Invalid minute in GUARDRAIL_TARGET_TIME: ${targetMinute}. Must be 0-59.`
+    );
+    process.exit(1);
+  }
+
+  // Calculate time window in minutes
+  const targetMinutes = targetHour * 60 + targetMinute;
+  const startMinutes = targetMinutes - guardrailWindowMins;
+  const endMinutes = targetMinutes + guardrailWindowMins;
+
+  // Get current UTC time in minutes
+  const now = new Date();
+  const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+
+  // Format time helper (handles day boundaries)
+  const formatTime = (mins) => {
+    const normalizedMins = ((mins % 1440) + 1440) % 1440; // 1440 = 24 * 60
+    const h = Math.floor(normalizedMins / 60);
+    const m = normalizedMins % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
+
+  // Check if current time is within window
+  let inWindow = false;
+
+  // Handle case where window crosses midnight
+  if (startMinutes < 0 || endMinutes >= 1440) {
+    // Window crosses midnight
+    const normalizedStart = ((startMinutes % 1440) + 1440) % 1440;
+    const normalizedEnd = ((endMinutes % 1440) + 1440) % 1440;
+
+    if (normalizedStart > normalizedEnd) {
+      // Window wraps around midnight (e.g., 23:55 - 00:05)
+      inWindow = currentMinutes >= normalizedStart || currentMinutes <= normalizedEnd;
+    } else {
+      inWindow = currentMinutes >= normalizedStart && currentMinutes <= normalizedEnd;
+    }
+  } else {
+    // Normal case: window does not cross midnight
+    inWindow = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+  }
+
+  if (!inWindow) {
+    const startTimeFormatted = formatTime(startMinutes);
+    const endTimeFormatted = formatTime(endMinutes);
+    const currentTimeFormatted = formatTime(currentMinutes);
+
+    logger.error(
+      `TIME GUARDRAIL VIOLATION: Current UTC time ${currentTimeFormatted} is outside the configured window ${startTimeFormatted} - ${endTimeFormatted}.`
+    );
+    logger.error(
+      `Configured target: ${guardrailTargetTime} UTC ± ${guardrailWindowMins} minutes.`
+    );
+    logger.error(
+      `To run anyway, use: node index.js --run-anyway`
+    );
+    process.exit(1);
+  }
+
+  logger.info(
+    `TIME GUARDRAIL PASSED: Current UTC time is within the configured window (${formatTime(
+      startMinutes
+    )} - ${formatTime(endMinutes)})`
+  );
+}
+
+// Execute guardrail check
+checkTimeGuardrail();
+
 // Initialize database models BEFORE importing other modules
 const { initModels, sequelize } = require("newsnexus10db");
 initModels();
