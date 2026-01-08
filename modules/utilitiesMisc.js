@@ -3,6 +3,7 @@ const {
   NewsArticleAggregatorSource,
 } = require("newsnexus10db");
 const { exec } = require("child_process");
+const logger = require("./logger");
 
 async function createArraysOfParametersNeverRequestedAndRequested(
   queryObjects
@@ -25,7 +26,7 @@ async function createArraysOfParametersNeverRequestedAndRequested(
   });
 
   for (const queryObj of queryObjects) {
-    // console.log(queryObj);
+    // logger.info(queryObj);
     const alreadyRequested = existingRequests.find((req) => {
       return (
         req.andString === queryObj.andString &&
@@ -95,7 +96,7 @@ async function checkRequestAndModifyDates(
     if (endDateDateObj > today) {
       endDate = today.toISOString().split("T")[0];
     }
-    console.log(`----> received enddate: ${endDate}`);
+    logger.info(`----> received enddate: ${endDate}`);
     return { adjustedStartDate: startDate, adjustedEndDate: endDate };
   }
 }
@@ -145,7 +146,7 @@ async function runSemanticScorer() {
       : null;
 
   if (!childProcessName) {
-    console.error(
+    logger.error(
       "FATAL ERROR: Cannot spawn child process - missing NAME_CHILD_PROCESS or NAME_CHILD_PROCESS_[descriptor] in environment.\n" +
         "Please add the appropriate variable to the .env file.\n" +
         "Example: NAME_CHILD_PROCESS=MyApp_Worker or NAME_CHILD_PROCESS_SEMANTIC_SCORER=MyApp_SemanticScorer"
@@ -153,7 +154,7 @@ async function runSemanticScorer() {
     process.exit(1);
   }
 
-  console.log(
+  logger.info(
     `Starting child process: ${process.env.PATH_AND_FILENAME_TO_SEMANTIC_SCORER}`
   );
 
@@ -167,25 +168,25 @@ async function runSemanticScorer() {
       },
       (error, stdout, stderr) => {
         if (error) {
-          console.error(`Error executing child process: ${error.message}`);
+          logger.error(`Error executing child process: ${error.message}`);
           return reject(error);
         }
         if (stderr) {
-          console.error(`Child process stderr: ${stderr}`);
+          logger.error(`Child process stderr: ${stderr}`);
         }
-        console.log(`Child process finished`);
+        logger.info(`Child process finished`);
         resolve(stdout);
       }
     );
   })
     .then(() => {
-      console.log(
+      logger.info(
         " [NewsNexusRequesterNewsDataIo01] ✅ NewsNexusSemanticScorer02 has finished."
       );
       process.exit();
     })
     .catch(() => {
-      console.log(
+      logger.info(
         " [NewsNexusRequesterNewsDataIo01] ❌ NewsNexusSemanticScorer02 has finished with error."
       );
       process.exit(1);

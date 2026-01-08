@@ -12,10 +12,10 @@ const startMinutes = (targetTimeToStartAutomation - 1) * 60 + 55; // 22:50 UTC
 const endMinutes = targetTimeToStartAutomation * 60 + 5; // 23:10 UTC
 
 if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
-  console.log(`Running ${process.env.NAME_APP} between 22:55 and 23:10 UTC`);
+  logger.info(`Running ${process.env.NAME_APP} between 22:55 and 23:10 UTC`);
   require("./index");
 } else {
-  console.log(
+  logger.info(
     `Not within allowed time window (22:55–23:10 UTC), exiting. Current UTC time: ${now.toISOString()}`
   );
 }

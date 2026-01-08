@@ -14,6 +14,7 @@ const {
   checkRequestAndModifyDates,
   runSemanticScorer,
 } = require("./utilitiesMisc");
+const logger = require("./logger");
 
 async function requester(currentParams, indexMaster) {
   // Step 1: prepare paramters
@@ -84,15 +85,15 @@ async function requester(currentParams, indexMaster) {
       requestWindowInDays
     );
 
-  console.log(`adjustedStartDate: ${adjustedStartDate}`);
-  console.log(`adjustedEndDate: ${adjustedEndDate}`);
+  logger.info(`adjustedStartDate: ${adjustedStartDate}`);
+  logger.info(`adjustedEndDate: ${adjustedEndDate}`);
 
   // Step 3: make the request
   let requestResponseData = null;
   let newsApiRequestObj = null;
 
   if (adjustedStartDate === adjustedEndDate) {
-    console.log(`No request needed for ${requestParametersObject.andString}`);
+    logger.info(`No request needed for ${requestParametersObject.andString}`);
     return adjustedEndDate;
   }
 
@@ -110,26 +111,26 @@ async function requester(currentParams, indexMaster) {
         indexMaster
       ));
   } catch (error) {
-    console.error(
+    logger.error(
       `Error during ${process.env.NAME_OF_ORG_REQUESTING_FROM} API request:`,
       error
     );
     return; // prevent proceeding to storeGNewsArticles if request failed
   }
 
-  // console.log(
+  // logger.info(
   //   "-----> [in requester after makeNewsApiRequestDetailed] newsApiRequestObj ",
   //   newsApiRequestObj
   // );
   // Step 4: store the articles
   if (!requestResponseData?.articles) {
-    console.log(
+    logger.info(
       `No articles received from ${process.env.NAME_OF_ORG_REQUESTING_FROM} request response`
     );
   } else {
     // Store articles and update NewsApiRequest
     await storeNewsApiArticles(requestResponseData, newsApiRequestObj);
-    console.log(`completed NewsApiRequest.id: ${newsApiRequestObj.id}`);
+    logger.info(`completed NewsApiRequest.id: ${newsApiRequestObj.id}`);
   }
 
   // return "2025-05-03";
@@ -148,14 +149,14 @@ async function makeNewsApiRequestDetailed(
   excludeWebsiteDomainObjArray = [],
   indexMaster
 ) {
-  // console.log(`keywordsAnd: ${keywordsAnd}, ${typeof keywordsAnd}`);
-  // console.log(`keywordsOr: ${keywordsOr}, ${typeof keywordsOr}`);
-  // console.log(`keywordsNot: ${keywordsNot}, ${typeof keywordsNot}`);
+  // logger.info(`keywordsAnd: ${keywordsAnd}, ${typeof keywordsAnd}`);
+  // logger.info(`keywordsOr: ${keywordsOr}, ${typeof keywordsOr}`);
+  // logger.info(`keywordsNot: ${keywordsNot}, ${typeof keywordsNot}`);
 
-  // console.log(
+  // logger.info(
   //   `---> includeWebsiteDomainObjArray: ${includeWebsiteDomainObjArray}, ${typeof includeWebsiteDomainObjArray}`
   // );
-  // console.log(
+  // logger.info(
   //   `---> excludeWebsiteDomainObjArray: ${JSON.stringify(
   //     excludeWebsiteDomainObjArray
   //   )}, ${typeof excludeWebsiteDomainObjArray}`
@@ -174,7 +175,7 @@ async function makeNewsApiRequestDetailed(
   if (includeWebsiteDomainObjArray.length === 0) {
     includeSourcesArray = null;
   } else {
-    console.log("THIS SHOULD NOT FIRE");
+    logger.info("THIS SHOULD NOT FIRE");
     includeSourcesArray = includeWebsiteDomainObjArray.map((obj) => obj.name);
   }
   if (excludeWebsiteDomainObjArray.length === 0) {
@@ -201,9 +202,9 @@ async function makeNewsApiRequestDetailed(
 
   // const startDateTest = new Date(startDate);
 
-  // console.log("-------");
-  // console.log(`startDate: ${startDate} ${typeof startDate}`);
-  // console.log("-------");
+  // logger.info("-------");
+  // logger.info(`startDate: ${startDate} ${typeof startDate}`);
+  // logger.info("-------");
   let queryParams = [];
 
   if (includeSourcesArray && includeSourcesArray.length > 0) {
@@ -238,7 +239,7 @@ async function makeNewsApiRequestDetailed(
   queryParams.push(`apiKey=${source.apiKey}`);
 
   const requestUrl = `${source.url}everything?${queryParams.join("&")}`;
-  // console.log("- [makeNewsApiRequestDetailed] requestUrl", requestUrl);
+  // logger.info("- [makeNewsApiRequestDetailed] requestUrl", requestUrl);
   let status = "success";
   let requestResponseData = null;
   // let newsApiRequest = null;
@@ -250,7 +251,7 @@ async function makeNewsApiRequestDetailed(
 
     if (!requestResponseData.articles) {
       status = "error";
-      // console.log(" #1 writeResponseDataFromNewsAggregator");
+      // logger.info(" #1 writeResponseDataFromNewsAggregator");
       writeResponseDataFromNewsAggregator(
         source.id,
         { id: `failed_indexMaster${indexMaster}`, url: requestUrl },
@@ -258,7 +259,7 @@ async function makeNewsApiRequestDetailed(
         true
       );
       if (requestResponseData.code === "rateLimited") {
-        console.log(
+        logger.info(
           `--> ⛔ Ending process: rate limited by ${process.env.NAME_OF_ORG_REQUESTING_FROM}`
         );
         await runSemanticScorer();
@@ -298,7 +299,7 @@ async function makeNewsApiRequestDetailed(
     newsApiRequestObj = requestUrl;
   }
 
-  // console.log(
+  // logger.info(
   //   "-----> [in makeNewsApiRequestDetailed] newsApiRequestObj ",
   //   newsApiRequestObj
   // );
@@ -307,7 +308,7 @@ async function makeNewsApiRequestDetailed(
 }
 
 async function storeNewsApiArticles(requestResponseData, newsApiRequest) {
-  // console.log("-----> newsApiRequest ", newsApiRequest);
+  // logger.info("-----> newsApiRequest ", newsApiRequest);
 
   // leverages the hasOne association from the NewsArticleAggregatorSource model
   const newsApiSource = await NewsArticleAggregatorSource.findOne({
@@ -353,7 +354,7 @@ async function storeNewsApiArticles(requestResponseData, newsApiRequest) {
     await newsApiRequest.update({
       countOfArticlesSavedToDbFromRequest: countOfArticlesSavedToDbFromRequest,
     });
-    // console.log(" #2 writeResponseDataFromNewsAggregator");
+    // logger.info(" #2 writeResponseDataFromNewsAggregator");
     writeResponseDataFromNewsAggregator(
       newsApiSource.id,
       newsApiRequest,
@@ -362,9 +363,9 @@ async function storeNewsApiArticles(requestResponseData, newsApiRequest) {
       // newsApiRequest.url
     );
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     requestResponseData.error = error;
-    // console.log(" #3 writeResponseDataFromNewsAggregator");
+    // logger.info(" #3 writeResponseDataFromNewsAggregator");
     writeResponseDataFromNewsAggregator(
       newsApiSource.id,
       newsApiRequest,

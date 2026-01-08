@@ -2,106 +2,183 @@ const winston = require("winston");
 const path = require("path");
 const fs = require("fs");
 
-// Detect if running as child process
-const isChildProcess = process.send !== undefined;
+// ============================================================================
+// ENVIRONMENT VARIABLE VALIDATION
+// ============================================================================
+
+// Validate required environment variables
+const requiredVars = ["NODE_ENV", "NAME_APP", "PATH_TO_LOGS"];
+const missingVars = requiredVars.filter((varName) => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  console.error(
+    `FATAL ERROR: Missing required environment variable(s): ${missingVars.join(", ")}\n` +
+      `Please add the following to your .env file:\n` +
+      missingVars.map((v) => `  ${v}=<value>`).join("\n")
+  );
+  process.exit(1);
+}
+
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
 
 // Determine environment
-const nodeEnv = process.env.NODE_ENV || "development";
+const nodeEnv = process.env.NODE_ENV;
 const isProduction = nodeEnv === "production";
 const isTesting = nodeEnv === "testing";
 const isDevelopment = nodeEnv === "development";
 
-// Determine process name and validate
+// Validate NODE_ENV value
+if (!isProduction && !isTesting && !isDevelopment) {
+  console.error(
+    `FATAL ERROR: NODE_ENV must be one of: development, testing, production\n` +
+      `Current value: ${nodeEnv}`
+  );
+  process.exit(1);
+}
+
+// Detect if running as child process
+const isChildProcess = process.send !== undefined;
+
+// Determine process name
 let processName;
 let processId;
 
 if (isChildProcess) {
-  // Child process: Look for NAME_CHILD_PROCESS or NAME_CHILD_PROCESS_* variables
-  const childProcessName =
-    process.env.NAME_CHILD_PROCESS ||
-    Object.keys(process.env).find((key) =>
-      key.startsWith("NAME_CHILD_PROCESS_")
-    )
-      ? process.env[
-          Object.keys(process.env).find((key) =>
-            key.startsWith("NAME_CHILD_PROCESS_")
-          )
-        ]
-      : null;
+  // Child process: Look for NAME_CHILD_PROCESS_* variables
+  const childProcessEnvKey = Object.keys(process.env).find((key) =>
+    key.startsWith("NAME_CHILD_PROCESS_")
+  );
 
-  if (!childProcessName) {
+  if (!childProcessEnvKey) {
     console.error(
-      "FATAL ERROR: Child process requires NAME_CHILD_PROCESS or NAME_CHILD_PROCESS_[descriptor] environment variable.\n" +
+      "FATAL ERROR: Child process requires NAME_CHILD_PROCESS_[descriptor] environment variable.\n" +
         "Please add the appropriate variable to the parent process .env file.\n" +
-        "Example: NAME_CHILD_PROCESS=MyApp_Worker or NAME_CHILD_PROCESS_BACKUP=MyApp_BackupService"
+        "Example: NAME_CHILD_PROCESS_SEMANTIC_SCORER=MyApp_SemanticScorer"
     );
     process.exit(1);
   }
 
-  processName = childProcessName;
-  processId = `${childProcessName}:${process.pid}`;
+  processName = process.env[childProcessEnvKey];
+  processId = `${processName}:${process.pid}`;
 } else {
   // Parent process: Use NAME_APP
-  processName = process.env.NAME_APP || "app";
+  processName = process.env.NAME_APP;
   processId = processName;
 }
 
-// Configuration
-const logDir = process.env.PATH_TO_LOGS || "./logs";
-const maxSize = parseInt(process.env.LOG_MAX_SIZE) || 10485760; // 10MB
-const maxFiles = parseInt(process.env.LOG_MAX_FILES) || 10;
+// Log directory and file rotation settings
+const logDir = process.env.PATH_TO_LOGS;
+const maxSizeMB = parseInt(process.env.LOG_MAX_SIZE) || 5; // Default 5MB
+const maxSizeBytes = maxSizeMB * 1024 * 1024; // Convert MB to bytes
+const maxFiles = parseInt(process.env.LOG_MAX_FILES) || 5; // Default 5 files
 
 // Determine log level based on environment
 let logLevel;
-if (isProduction) {
-  logLevel = "error"; // Only errors in production
-} else if (isTesting) {
-  logLevel = "info"; // Info and above in testing
-} else {
+if (isDevelopment) {
   logLevel = "debug"; // All levels in development
+} else if (isTesting || isProduction) {
+  logLevel = "info"; // Info and above in testing and production
 }
+
+// ============================================================================
+// LOG FORMATS
+// ============================================================================
 
 // Define log format for files (production and testing)
 const fileLogFormat = winston.format.combine(
   winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss.SSS" }),
   winston.format.errors({ stack: true }),
-  winston.format.printf(({ timestamp, level, message, ...meta }) => {
+  winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
     const metaStr = Object.keys(meta).length ? " " + JSON.stringify(meta) : "";
-    return `[${timestamp}] [${level.toUpperCase()}] [${processId}] ${message}${metaStr}`;
+    const stackStr = stack ? `\n${stack}` : "";
+    return `[${timestamp}] [${level.toUpperCase()}] [${processId}] ${message}${metaStr}${stackStr}`;
   })
 );
 
-// Define log format for console (development)
+// Define log format for console (development and testing)
 const consoleLogFormat = winston.format.combine(
   winston.format.timestamp({ format: "HH:mm:ss" }),
   winston.format.colorize(),
-  winston.format.printf(({ timestamp, level, message, ...meta }) => {
+  winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
     const metaStr = Object.keys(meta).length ? " " + JSON.stringify(meta) : "";
-    return `${timestamp} ${level} [${processId}] ${message}${metaStr}`;
+    const stackStr = stack ? `\n${stack}` : "";
+    return `${timestamp} ${level} [${processId}] ${message}${metaStr}${stackStr}`;
   })
 );
 
-// Create logger
+// ============================================================================
+// LOGGER CREATION
+// ============================================================================
+
 const logger = winston.createLogger({
   level: logLevel,
   transports: [],
   exitOnError: false,
 });
 
-// Add transports based on environment
-if (isProduction || isTesting) {
-  // Production and Testing: Write to files
+// ============================================================================
+// CONFIGURE TRANSPORTS BASED ON ENVIRONMENT
+// ============================================================================
+
+if (isDevelopment) {
+  // Development Mode: Console only
+  logger.add(
+    new winston.transports.Console({
+      format: consoleLogFormat,
+    })
+  );
+} else if (isTesting) {
+  // Testing Mode: Both console AND log files
   try {
     // Create log directory if it doesn't exist
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });
-      console.warn(`Created log directory: ${logDir}`);
+      console.log(`Created log directory: ${logDir}`);
+    }
+
+    // Add file transport
+    logger.add(
+      new winston.transports.File({
+        filename: path.join(logDir, `${processName}.log`),
+        maxsize: maxSizeBytes,
+        maxFiles: maxFiles,
+        tailable: true,
+        format: fileLogFormat,
+      })
+    );
+
+    // Add console transport
+    logger.add(
+      new winston.transports.Console({
+        format: consoleLogFormat,
+      })
+    );
+  } catch (error) {
+    console.error(
+      `Failed to initialize file logging: ${error.message}. Falling back to console logging only.`
+    );
+    // Fall back to console logging only
+    logger.add(
+      new winston.transports.Console({
+        format: consoleLogFormat,
+      })
+    );
+  }
+} else if (isProduction) {
+  // Production Mode: Log files only
+  try {
+    // Create log directory if it doesn't exist
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+      console.log(`Created log directory: ${logDir}`);
     }
 
     logger.add(
       new winston.transports.File({
         filename: path.join(logDir, `${processName}.log`),
-        maxsize: maxSize,
+        maxsize: maxSizeBytes,
         maxFiles: maxFiles,
         tailable: true,
         format: fileLogFormat,
@@ -109,42 +186,18 @@ if (isProduction || isTesting) {
     );
   } catch (error) {
     console.error(
-      `Failed to initialize file logging: ${error.message}. Falling back to console logging.`
+      `FATAL ERROR: Failed to initialize file logging in production mode: ${error.message}`
     );
-    // Fall back to console logging
-    logger.add(
-      new winston.transports.Console({
-        format: consoleLogFormat,
-      })
-    );
+    process.exit(1);
   }
-} else {
-  // Development: Console only
-  logger.add(
-    new winston.transports.Console({
-      format: consoleLogFormat,
-    })
-  );
 }
 
-// Monkey-patch console methods to use Winston
-const originalConsole = {
-  log: console.log,
-  error: console.error,
-  warn: console.warn,
-  info: console.info,
-  debug: console.debug,
-};
+// ============================================================================
+// INITIALIZATION MESSAGE
+// ============================================================================
 
-console.log = (...args) => logger.info(args.join(" "));
-console.error = (...args) => logger.error(args.join(" "));
-console.warn = (...args) => logger.warn(args.join(" "));
-console.info = (...args) => logger.info(args.join(" "));
-console.debug = (...args) => logger.debug(args.join(" "));
-
-// Log initialization message
 logger.info(
-  `Logger initialized for ${isChildProcess ? "child" : "parent"} process: ${processId} in ${nodeEnv} mode (log level: ${logLevel})`
+  `Logger initialized for ${isChildProcess ? "child" : "parent"} process: ${processId} in ${nodeEnv} mode (log level: ${logLevel}, maxSize: ${maxSizeMB}MB, maxFiles: ${maxFiles})`
 );
 
 module.exports = logger;
