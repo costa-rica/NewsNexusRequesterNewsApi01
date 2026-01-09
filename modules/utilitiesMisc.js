@@ -164,6 +164,7 @@ async function runSemanticScorer() {
       {
         env: {
           ...process.env, // Passes all env variables including NAME_CHILD_PROCESS_*, PATH_TO_LOGS, LOG_MAX_SIZE, LOG_MAX_FILES, NODE_ENV
+          NAME_APP: process.env.NAME_CHILD_PROCESS_SEMANTIC_SCORER, // Pass child process name
         },
       },
       (error, stdout, stderr) => {

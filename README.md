@@ -33,7 +33,6 @@ This app requires importing or adding the `NewsNexus10Db` package, which provide
 
 ```
 NAME_APP=NewsNexusRequesterNewsApi01
-JWT_SECRET=secret
 NAME_DB=newsnexus10.db
 PATH_DATABASE=/Users/nick/Documents/_databases/NewsNexus10/
 PATH_TO_API_RESPONSE_JSON_FILES=/Users/nick/Documents/_project_resources/NewsNexus10/api_response_json_files
@@ -52,7 +51,6 @@ MILISECONDS_IN_BETWEEN_REQUESTS=1100
 
 ```
 NAME_APP=NewsNexusRequesterNewsApi01
-JWT_SECRET=secret
 NAME_DB=newsnexus10.db
 PATH_DATABASE=/home/nick/databases/NewsNexus10/
 PATH_TO_API_RESPONSE_JSON_FILES=/home/nick/project_resources/NewsNexus10/api_response_json_files
