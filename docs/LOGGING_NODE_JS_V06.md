@@ -1,10 +1,10 @@
-# Node.js Logging Requirements V05
+# Node.js Logging Requirements V06
 
 ## Overview
 
 This document specifies logging requirements for Node.js applications using Winston. These requirements apply to both standard Node.js and Next.js applications.
 
-- modificaiton from v04: renamed example `NAME_CHILD_PROCESS_SCORER` to `NAME_CHILD_PROCESS_SEMANTIC_SCORER`
+- modification from v05: added async IIFE pattern requirement for early exit scenarios to ensure Winston logs flush to disk before process termination
 
 ## Pre-Implementation: Console Statement Migration
 
@@ -122,6 +122,20 @@ Environment variable validation occurs in the logger configuration file before l
 - Main application file (e.g., `index.js`) should load dotenv first, then require the logger configuration file
 - Export a singleton logger instance for use throughout the application
 - See "Logger File Placement" section for file location guidance
+
+## Ensuring Logs on Early Exit
+
+**Critical for microservices, scheduled tasks, and systemd services**: Applications must log their startup attempt even when exiting early due to guardrails, validation failures, or other pre-flight checks. In production mode, Winston writes to files only, and the process buffer may not flush if the application exits immediately.
+
+**Required pattern for early exit scenarios:**
+
+1. **Wrap application in async IIFE**: Use `(async () => { ... })()` pattern to enable early returns with proper cleanup
+2. **Log before exit**: Call `logger.info()` or `logger.warn()` with exit reason
+3. **Add console.error**: Write critical messages to stderr for immediate visibility (important when tailing systemd logs)
+4. **Delay before exit**: Add `await new Promise((resolve) => setTimeout(resolve, 100))` to give Winston 100ms to flush buffer to disk
+5. **Then exit**: Call `process.exit(0)` or `process.exit(1)` as appropriate
+
+This pattern ensures that when a microservice is triggered by cron or systemd but exits due to guardrails (time windows, environment checks, etc.), the log file will contain a record of the attempt. Without this pattern, the log file may remain empty, making troubleshooting impossible.
 
 ## Log Levels
 

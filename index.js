@@ -8,7 +8,7 @@ logger.info("Starting NewsNexusRequesterNewsApi01");
 // TIME GUARDRAIL CHECK
 // ============================================================================
 
-function checkTimeGuardrail() {
+async function checkTimeGuardrail() {
   // Check for bypass flag
   const runAnyway = process.argv.includes("--run-anyway");
   if (runAnyway) {
@@ -31,6 +31,10 @@ function checkTimeGuardrail() {
     logger.error(
       `FATAL ERROR: Invalid GUARDRAIL_TARGET_TIME format: "${guardrailTargetTime}". Expected HH:MM (24-hour format).`
     );
+    console.error(
+      `FATAL ERROR: Invalid GUARDRAIL_TARGET_TIME format: "${guardrailTargetTime}". Expected HH:MM (24-hour format).`
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
     process.exit(1);
   }
 
@@ -42,6 +46,10 @@ function checkTimeGuardrail() {
     logger.error(
       `FATAL ERROR: Invalid hour in GUARDRAIL_TARGET_TIME: ${targetHour}. Must be 0-23.`
     );
+    console.error(
+      `FATAL ERROR: Invalid hour in GUARDRAIL_TARGET_TIME: ${targetHour}. Must be 0-23.`
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
     process.exit(1);
   }
 
@@ -49,6 +57,10 @@ function checkTimeGuardrail() {
     logger.error(
       `FATAL ERROR: Invalid minute in GUARDRAIL_TARGET_TIME: ${targetMinute}. Must be 0-59.`
     );
+    console.error(
+      `FATAL ERROR: Invalid minute in GUARDRAIL_TARGET_TIME: ${targetMinute}. Must be 0-59.`
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
     process.exit(1);
   }
 
@@ -103,6 +115,16 @@ function checkTimeGuardrail() {
     logger.error(
       `To run anyway, use: node index.js --run-anyway`
     );
+    console.error(
+      `TIME GUARDRAIL VIOLATION: Current UTC time ${currentTimeFormatted} is outside the configured window ${startTimeFormatted} - ${endTimeFormatted}.`
+    );
+    console.error(
+      `Configured target: ${guardrailTargetTime} UTC ± ${guardrailWindowMins} minutes.`
+    );
+    console.error(
+      `To run anyway, use: node index.js --run-anyway`
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
     process.exit(1);
   }
 
@@ -113,40 +135,44 @@ function checkTimeGuardrail() {
   );
 }
 
-// Execute guardrail check
-checkTimeGuardrail();
+// ============================================================================
+// MAIN EXECUTION - Wrapped in async IIFE for proper cleanup on early exits
+// ============================================================================
+(async () => {
+  // Execute guardrail check
+  await checkTimeGuardrail();
 
-// Initialize database models BEFORE importing other modules
-const { initModels, sequelize } = require("newsnexus10db");
-initModels();
-logger.info(
-  `database location: ${process.env.PATH_DATABASE}${process.env.NAME_DB}`
-);
+  // Initialize database models BEFORE importing other modules
+  const { initModels, sequelize } = require("newsnexus10db");
+  initModels();
+  logger.info(
+    `database location: ${process.env.PATH_DATABASE}${process.env.NAME_DB}`
+  );
 
-const {
-  getRequestsParameterArrayFromExcelFile,
-} = require("./modules/utilitiesReadAndMakeFiles");
-const {
-  createArraysOfParametersNeverRequestedAndRequested,
-  findEndDateToQueryParameters,
-  runSemanticScorer,
-} = require("./modules/utilitiesMisc");
-const { requester } = require("./modules/requestsNewsApi");
+  const {
+    getRequestsParameterArrayFromExcelFile,
+  } = require("./modules/utilitiesReadAndMakeFiles");
+  const {
+    createArraysOfParametersNeverRequestedAndRequested,
+    findEndDateToQueryParameters,
+    runSemanticScorer,
+  } = require("./modules/utilitiesMisc");
+  const { requester } = require("./modules/requestsNewsApi");
 
-logger.info(
-  `--------------------------------------------------------------------------------`
-);
-logger.info(
-  `- Start NewsNexusRequesterNewsApi01 ${new Date().toISOString()} --`
-);
-logger.info(
-  `MILISECONDS_IN_BETWEEN_REQUESTS: ${process.env.MILISECONDS_IN_BETWEEN_REQUESTS}`
-);
-logger.info(
-  `--------------------------------------------------------------------------------`
-);
+  logger.info(
+    `--------------------------------------------------------------------------------`
+  );
+  logger.info(
+    `- Start NewsNexusRequesterNewsApi01 ${new Date().toISOString()} --`
+  );
+  logger.info(
+    `MILISECONDS_IN_BETWEEN_REQUESTS: ${process.env.MILISECONDS_IN_BETWEEN_REQUESTS}`
+  );
+  logger.info(
+    `--------------------------------------------------------------------------------`
+  );
 
-async function main() {
+  async function main() {
   logger.info("Starting main function");
   // Step 1: Create Array of Parameters for Requests - prioritized based on dateEndOfRequest
   // Step 1.1: Get the query objects from Excel file
@@ -257,8 +283,16 @@ async function main() {
   }
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
-main();
+  await main();
+})().catch(async (error) => {
+  logger.error(`Unhandled error in main execution: ${error.message}`, {
+    stack: error.stack,
+  });
+  console.error(`Unhandled error in main execution: ${error.message}`);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  process.exit(1);
+});
